@@ -5,12 +5,20 @@ import json
 import sys
 import csv
 import logging
-from kafka import KafkaProducer
-from kafka.errors import KafkaError
+# from kafka import KafkaProducer
+# from kafka.errors import KafkaError
+
+from confluent_kafka import Producer
+import socket
 
 BOOTSTRAP_SERVER_IP = '127.0.0.1:9092'
 
-producer = KafkaProducer(bootstrap_servers=[BOOTSTRAP_SERVER_IP], value_serializer=lambda m: json.dumps(m).encode('ascii'))
+# producer = KafkaProducer(bootstrap_servers=[BOOTSTRAP_SERVER_IP], value_serializer=lambda m: json.dumps(m).encode('ascii'))
+
+conf = {'bootstrap.servers': BOOTSTRAP_SERVER_IP,
+        'client.id': socket.gethostname()}
+
+producer = Producer(conf)
 
 class TCPHandler(socketserver.BaseRequestHandler):
     """
@@ -22,12 +30,6 @@ class TCPHandler(socketserver.BaseRequestHandler):
     """        
 
     def handle(self):
-        def on_send_success(record_metadata):
-            logging.info('Publish data to ' + record_metadata.topic)
-
-        def on_send_error(excp):
-            logging.error('Error sending data', exc_info=excp)
-
         # self.request is the TCP socket connected to the client
         self.data = self.request.recv(1024).strip()
         logging.info("{} Wrote:".format(self.client_address[0]))
@@ -47,9 +49,20 @@ class TCPHandler(socketserver.BaseRequestHandler):
         except Exception as e:
             logging.exception(e)
 
+        def acked(err, msg):
+            if err is not None:
+                logging.error("Failed to deliver message: %s: %s" % (str(msg), str(err)))
+            else:
+                logging.info("Message produced: %s" % (msg))
+
+        topic = 'received-dsrc-message'
+        record_key = "J2735.DSRC.MessageFrame"
+        record_value = json.dumps(msg())
+
         try:
-            # rdm Received DSRC Messages
-            future = producer.send('received-dsrc-messages', value=msg()).add_callback(on_send_success).add_errback(on_send_error)
+            logging.info("Producing record: {}\t{}".format(record_key, record_value))
+            producer.produce(topic, key=record_key, value=record_value, on_delivery=acked)
+            producer.poll(0)
         except Exception as e:
             logging.exception(e)
 
