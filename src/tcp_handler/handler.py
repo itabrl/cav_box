@@ -8,7 +8,29 @@ import socket
 from dsrc_message_decoder.message_frame_decoder import MessageFrameDecoder
 from producers.dsrc import Dsrc
 
+class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
 
+    dsrc_message_producer = Dsrc(0, None)
+    mfd = MessageFrameDecoder()
+
+    def handle(self):
+        self.data = self.request.recv(1024).strip()
+        logging.info("{} Wrote:".format(self.client_address[0]))
+
+        msg = self.mfd.decode(self.data)
+
+        record_key = "J2735.DSRC.MessageFrame"
+        record_value = json.dumps(msg())
+
+        self.dsrc_message_producer.set_value(record_value)
+        self.dsrc_message_producer.run()
+
+        # just send back the same data, but upper-cased
+        self.request.sendall("200 OK")
+
+class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
+    pass
+    
 class TCPHandler(socketserver.BaseRequestHandler):
     """
     The request handler class for our server.
