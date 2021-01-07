@@ -1,5 +1,5 @@
 from binascii import hexlify, unhexlify
-import J2735
+from . import J2735
 import logging
 
 class MessageFrameDecoder():
