@@ -5,11 +5,12 @@ import time
 from confluent_kafka import avro
 from confluent_kafka.admin import AdminClient, NewTopic
 from confluent_kafka.avro import AvroProducer
+import os
 
 logger = logging.getLogger(__name__)
 
-BOOTSTRAP_SERVERS = "PLAINTEXT://127.0.0.1:9092"
-SCHEMA_REGISTRY_URL = "http://0.0.0.0:8081/"
+BOOTSTRAP_SERVERS = os.getenv('BOOTSTRAP_SERVERS', "kafka:29092")
+SCHEMA_REGISTRY_URL = os.getenv('SCHEMA_REGISTRY_URL', "http://schema-registry:8081")
 
 class Producer:
     """Defines and provides common functionality amongst Producers"""
